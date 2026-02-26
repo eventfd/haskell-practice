@@ -70,42 +70,44 @@ arr = [[1,2,3], [2,3,4], [3,4,5]]
 arr1 = (fmap . fmap) (*2) arr -- transforms every integer by multiplying by 2, **preserving** the 2D list
 ```
 
-# Applicatives
+## Functions are Functors
+
+The `(->)` syntax which we had been using, like `f :: a -> b` to denote `f` takes a value of type `a` and evaluates to a value of `b`.
+
+We can write in prefix notation as `f :: (->) a b`. Or in _section_al form as `f :: (a ->) b` and `f :: (-> b) a`
+
+- `Functor` class instance has kind `* -> *` which means a value needs to be applied to the instance to produce a value. Therefore the `(->)` is not a functor. But `(->) a` can be, let's check.
+
+- `Functor` instances needs to satisfy `fmap :: (Functor f) => (x -> y) -> f x -> f y`
 
 ```haskell
-class Functor f => Applicative f where
-    pure :: a -> f a
-    (<*>) :: f (a -> b) -> f a -> f b
-    liftA2 :: (a -> b -> c) -> f a -> f b -> f c
-    (*>) :: f a -> f b -> f b
-    (<*) :: f a -> f b -> f a
-    {-# MINIMAL pure, ((<*>) | liftA2) #-}
+fmap :: (Functor f) => (x -> y) -> f x -> f y
+--                  =  (x -> y) -> (-> a) x -> (-> a) y
+--                  =  (x -> y) -> (a -> x) -> (a -> y)
 ```
 
-1. Applicatives extend over curried functions. Why? Because `(->)` is associates from right.
-
-Let `f1 :: a -> b -> c`. If we type match with `a -> b`, we get, `f1 :: a -> (b -> c)`. Thus 
-```haskell
-(<*>) :: f (a -> b -> c) -> f a -> f (b -> c)
-```
-
-2. `<*>` and `liftA2` are _functionally_ equivalent.
-
-> A curried function (in a context) is applied with a value (in the same context) to get another curried function (in the same context).
-
-3. Implement `liftA2` using `<*>`
-
-- `liftA2` takes in a function without context i.e., we need to apply `pure`
+For Example:
 
 ```haskell
-liftA2' :: (a -> b -> c) -> f a -> f b -> f c
-liftA2' f a b = pure f <*> a <*> b
+-- fmap (+1) (*2) :: f y
+--    (x -> y) == (+1) == \w -> w + 1
+--    (a -> x) == (*2) == \z -> z*2
+--         a == z === x == z*2
+--      => y == w + 1 === x == w
+--      unifying, we get
+--         a == z, x == z*2, y == (z*2) + 1
+
+-- fmap (+1) (*2) === (+1) . (*2)
 ```
 
-4. `liftA*` functions
+Wait! Isn't this function composition? Let's mathematically verify it.
 
-```haskell
--- Control.Applicative module
-liftA :: (Applicative f) => (a -> b) -> f a -> f b
-liftA3 :: (Applicative f) => (a -> b -> c -> d) -> f a -> f b -> f c -> f d
 ```
+f1 :: x -> y
+f2 :: a -> z
+fmap f1 f2 :: (x -> y) -> (a -> x) -> (a -> y)
+f1 . f2 :: (x -> y) -> (a -> z) -> (a -> y)        => x == z
+        :: (x -> y) -> (a -> x) -> (a -> y)
+```
+
+Yes! `f1 . f2` $\equiv$ `fmap f1 f2`
